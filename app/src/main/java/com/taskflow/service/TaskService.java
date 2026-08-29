@@ -43,7 +43,11 @@ public class TaskService {
             request.priority() != null ? request.priority() : DEFAULT_PRIORITY,
             request.dueDate());
 
-    Task saved = taskRepository.save(task);
+    // saveAndFlush rather than save: @CreationTimestamp is populated by Hibernate as part of the
+    // INSERT, and a plain save() only stages that insert in the persistence context. The flush
+    // would not happen until commit, which is after this method has already mapped the response,
+    // so the caller would receive createdAt and updatedAt as null.
+    Task saved = taskRepository.saveAndFlush(task);
     log.info("Task created id={} status={}", saved.getId(), saved.getStatus());
     return TaskResponse.from(saved);
   }

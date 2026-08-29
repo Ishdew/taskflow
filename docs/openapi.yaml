@@ -1,0 +1,340 @@
+openapi: 3.1.0
+info:
+  title: TaskFlow API
+  description: |-
+    Internal task management service.
+
+    Errors are returned as RFC 7807 problem documents with the `application/problem+json` content type. Validation failures carry an additional `errors` array naming each rejected field.
+  license:
+    name: Proprietary - GTN Technologies
+  version: 0.0.1-SNAPSHOT
+servers:
+- url: http://localhost:8080
+  description: Generated server url
+tags:
+- name: Tasks
+  description: "Create, retrieve, update and delete tasks"
+paths:
+  /api/v1/tasks/{id}:
+    get:
+      tags:
+      - Tasks
+      summary: Retrieve a single task
+      operationId: get
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "404":
+          description: No task with that id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+    put:
+      tags:
+      - Tasks
+      summary: Replace a task
+      operationId: update
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaskRequest"
+        required: true
+      responses:
+        "200":
+          description: The updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: No task with that id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+    delete:
+      tags:
+      - Tasks
+      summary: Delete a task
+      operationId: delete
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: Task deleted
+        "404":
+          description: No task with that id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+  /api/v1/tasks:
+    get:
+      tags:
+      - Tasks
+      summary: "List tasks, newest first, optionally filtered by status"
+      operationId: list
+      parameters:
+      - name: status
+        in: query
+        description: Return only tasks in this status
+        required: false
+        schema:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - DONE
+      - name: page
+        in: query
+        description: Zero-based page index (0..N)
+        required: false
+        schema:
+          type: integer
+          default: 0
+          minimum: 0
+      - name: size
+        in: query
+        description: The size of the page to be returned
+        required: false
+        schema:
+          type: integer
+          default: 20
+          minimum: 1
+      - name: sort
+        in: query
+        description: "Sorting criteria in the format: property,(asc|desc). Default\
+          \ sort order is ascending. Multiple sort criteria are supported."
+        required: false
+        schema:
+          type: array
+          default:
+          - "createdAt,DESC"
+          items:
+            type: string
+      responses:
+        "200":
+          description: A page of tasks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PagedResponseTaskResponse"
+    post:
+      tags:
+      - Tasks
+      summary: Create a task
+      operationId: create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskRequest"
+        required: true
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+components:
+  schemas:
+    UpdateTaskRequest:
+      type: object
+      description: Fields accepted when replacing a task
+      properties:
+        title:
+          type: string
+          example: Rotate the RDS master credential
+          maxLength: 200
+          minLength: 0
+        description:
+          type: string
+          example: "Quarterly credential rotation, coordinate with the on-call engineer."
+          maxLength: 2000
+          minLength: 0
+        status:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - DONE
+          example: IN_PROGRESS
+        priority:
+          type: string
+          enum:
+          - LOW
+          - MEDIUM
+          - HIGH
+          example: HIGH
+        dueDate:
+          type: string
+          format: date
+          example: 2026-12-31
+      required:
+      - priority
+      - status
+      - title
+    ProblemDetail:
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type:
+          - string
+          - "null"
+        status:
+          type: integer
+          format: int32
+        detail:
+          type:
+          - string
+          - "null"
+        instance:
+          type:
+          - string
+          - "null"
+          format: uri
+        properties:
+          type:
+          - object
+          - "null"
+          additionalProperties: {}
+    TaskResponse:
+      type: object
+      description: A task
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - DONE
+        priority:
+          type: string
+          enum:
+          - LOW
+          - MEDIUM
+          - HIGH
+        dueDate:
+          type: string
+          format: date
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateTaskRequest:
+      type: object
+      description: Fields accepted when creating a task
+      properties:
+        title:
+          type: string
+          example: Rotate the RDS master credential
+          maxLength: 200
+          minLength: 0
+        description:
+          type: string
+          example: "Quarterly credential rotation, coordinate with the on-call engineer."
+          maxLength: 2000
+          minLength: 0
+        status:
+          type: string
+          default: TODO
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - DONE
+          example: TODO
+        priority:
+          type: string
+          default: MEDIUM
+          enum:
+          - LOW
+          - MEDIUM
+          - HIGH
+          example: HIGH
+        dueDate:
+          type: string
+          format: date
+          example: 2026-12-31
+      required:
+      - title
+    PagedResponseTaskResponse:
+      type: object
+      description: A page of results
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaskResponse"
+        page:
+          type: integer
+          format: int32
+          description: Zero-based index of this page
+          example: 0
+        size:
+          type: integer
+          format: int32
+          description: Requested page size
+          example: 20
+        totalElements:
+          type: integer
+          format: int64
+          description: Total matching records across all pages
+          example: 42
+        totalPages:
+          type: integer
+          format: int32
+          description: Total number of pages
+          example: 3
+        last:
+          type: boolean
+          description: Whether this is the final page

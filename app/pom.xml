@@ -107,6 +107,44 @@
 						<enabled>true</enabled>
 					</layers>
 				</configuration>
+				<executions>
+					<execution>
+						<!-- Emits build-info.properties, which Actuator serves from
+						     /info. Lets an operator confirm which build a running ECS
+						     task is actually on without shelling into the container. -->
+						<id>build-info</id>
+						<goals>
+							<goal>build-info</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
+			<!-- Resolves dependency paths into properties so the Mockito agent jar
+			     can be referenced below. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>resolve-agent-paths</id>
+						<goals>
+							<goal>properties</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
+			<!-- Mockito must be loaded as an explicit -javaagent. Left to itself it
+			     self-attaches, which the JDK is in the process of removing and which
+			     already prints a warning on every test run. @{argLine} preserves the
+			     JaCoCo agent that prepare-agent puts on the same property. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
+				</configuration>
 			</plugin>
 
 			<!-- *IT classes are integration tests and run under failsafe, keeping
@@ -114,6 +152,9 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-failsafe-plugin</artifactId>
+				<configuration>
+					<argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
+				</configuration>
 				<executions>
 					<execution>
 						<goals>
