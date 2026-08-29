@@ -1,0 +1,26 @@
+title = "TaskFlow secret scanning"
+
+# Start from gitleaks' full built-in rule set (AWS keys, private keys, generic
+# high-entropy tokens, etc.) and only narrow it where we get known false positives.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholders in templates, examples and documentation"
+
+paths = [
+  '''\.gitleaks\.toml$''',
+  '''.*\.tfvars\.example$''',
+  '''.*\.env\.example$''',
+  '''^docs/.*\.md$''',
+  '''^README\.md$''',
+  '''^evidence/.*''',
+]
+
+regexes = [
+  # Documented placeholder values, never real credentials.
+  '''(?i)(change[-_]?me|placeholder|example|dummy|redacted|xxxxx+|<[a-z-]+>)''',
+  # The local docker-compose Postgres password, which is deliberately trivial
+  # and only ever reachable on localhost.
+  '''POSTGRES_PASSWORD=taskflow_local''',
+]

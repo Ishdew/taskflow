@@ -1,0 +1,99 @@
+### Secrets and credentials ###
+# Never commit these. See docs/runbook.md for how credentials are actually supplied.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.ppk
+id_rsa
+id_ed25519
+.aws/
+credentials
+*_credentials
+*.kubeconfig
+
+### Terraform ###
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfplan.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+.terraform.lock.hcl.bak
+
+# Variable files hold account IDs, CIDRs and key names. Examples are tracked, real ones are not.
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+### Ansible ###
+*.retry
+ansible/inventory/hosts
+ansible/inventory/hosts.ini
+ansible/*.log
+.vault_pass
+vault_pass.txt
+
+### Java / Maven ###
+target/
+!**/src/main/**/target/
+!**/src/test/**/target/
+.mvn/wrapper/maven-wrapper.jar
+*.class
+*.log
+hs_err_pid*
+replay_pid*
+
+### Python (vertical-scaler Lambda, tooling) ###
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Lambda build artifacts are produced by Terraform, not committed
+*.zip
+
+### Docker ###
+.docker/
+
+### IDE ###
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### OS ###
+.DS_Store
+Thumbs.db
+desktop.ini
+
+### Generated docs ###
+app/HELP.md

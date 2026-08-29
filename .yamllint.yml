@@ -1,0 +1,25 @@
+---
+extends: default
+
+ignore: |
+  .terraform/
+  target/
+  evidence/
+
+rules:
+  # CI job definitions and Ansible tasks routinely exceed 80 columns; wrapping
+  # them hurts readability more than the long line does.
+  line-length:
+    max: 160
+    level: warning
+  # Ansible convention is 2-space indentation with list items indented under
+  # their parent key.
+  indentation:
+    spaces: 2
+    indent-sequences: true
+  comments:
+    min-spaces-from-content: 1
+  truthy:
+    # GitLab CI and GitHub Actions both use bare `on:`-style keys.
+    allowed-values: ["true", "false"]
+    check-keys: false

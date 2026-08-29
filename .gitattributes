@@ -1,0 +1,29 @@
+# Default: let git normalize text files in the repo, check out native on each platform.
+* text=auto
+
+# Files consumed by Linux (CI runners, ECS hosts, Docker builds) must keep LF
+# regardless of the fact that this repo is authored on Windows.
+app/mvnw        text eol=lf
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+*.Dockerfile    text eol=lf
+.gitlab-ci.yml  text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.tf            text eol=lf
+*.tfvars        text eol=lf
+*.tfvars.example text eol=lf
+*.py            text eol=lf
+*.sql           text eol=lf
+*.java          text eol=lf
+
+# Windows-only scripts
+*.cmd           text eol=crlf
+*.bat           text eol=crlf
+
+# Binary evidence artifacts
+*.png           binary
+*.jpg           binary
+*.gif           binary
+*.mp4           binary
+*.pdf           binary
