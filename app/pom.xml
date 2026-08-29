@@ -223,7 +223,11 @@
 							<style>GOOGLE</style>
 						</googleJavaFormat>
 						<removeUnusedImports/>
-						<formatAnnotations/>
+						<!-- formatAnnotations is deliberately omitted. Jakarta Bean Validation
+						     constraints declare TYPE_USE, so it classifies them as type annotations
+						     and pulls them onto the declaration line, producing 130-column lines on
+						     the validated record components that google-java-format would otherwise
+						     wrap at 100. -->
 					</java>
 				</configuration>
 			</plugin>
