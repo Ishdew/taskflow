@@ -1,0 +1,26 @@
+# Local development overrides, active only under the `local` profile.
+#
+# This profile is never activated in AWS: the ECS task definition sets no SPRING_PROFILES_ACTIVE, so
+# a deployed container falls back to application.yml alone. Local-only concessions therefore stay
+# safely quarantined here instead of weakening the defaults the deployed service actually uses.
+#
+# `mvn spring-boot:run` activates this automatically (see spring-boot-maven-plugin in pom.xml).
+
+spring:
+  datasource:
+    # 5433, not the 5432 that application.yml defaults to. A natively installed Windows or Homebrew
+    # PostgreSQL service wins the bind on localhost:5432 ahead of Docker's port forward, so the app
+    # silently connects to that server instead of the project's container and fails authentication
+    # with a misleading `FATAL: password authentication failed for user "taskflow"`. Publishing the
+    # dev container on 5433 sidesteps the clash entirely. The AWS default stays 5432 for RDS.
+    #
+    # DB_PORT still wins if it is set, so an override remains possible without editing this file.
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:taskflow}?sslmode=${DB_SSL_MODE:prefer}
+
+management:
+  endpoint:
+    health:
+      # Safe to expose locally and useful for spotting which component is down. Deliberately not
+      # changed in application.yml, where the health endpoint is reachable from the ALB listener.
+      show-details: ${HEALTH_SHOW_DETAILS:always}
+      show-components: ${HEALTH_SHOW_COMPONENTS:always}

@@ -106,6 +106,12 @@
 					<layers>
 						<enabled>true</enabled>
 					</layers>
+					<!-- Applies to spring-boot:run only, so the packaged jar that ships
+					     to ECS is unaffected. Makes `mvn spring-boot:run` pick up the
+					     local database port with no flag or shell variable to forget. -->
+					<profiles>
+						<profile>local</profile>
+					</profiles>
 				</configuration>
 				<executions>
 					<execution>
