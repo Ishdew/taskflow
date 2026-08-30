@@ -147,6 +147,8 @@ ansible_lint:
     - cd ansible && ansible-galaxy collection install -r requirements.yml
   script:
     - cd "$CI_PROJECT_DIR/ansible"
+    # GitLab checkout is world-writable; ansible.cfg is ignored until we fix that.
+    - chmod -R go-w .
     - ansible-lint site.yml roles/
 
 spotless:
@@ -160,7 +162,9 @@ spotless:
 yamllint:
   extends: .rules_mr_or_main
   stage: lint
-  image: cytopia/yamllint:latest
+  image:
+    name: cytopia/yamllint:latest
+    entrypoint: [""]
   script:
     - yamllint -c .yamllint.yml .
 

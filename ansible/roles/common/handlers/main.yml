@@ -9,6 +9,11 @@
     name: sshd
     state: reloaded
 
+- name: Restart docker
+  ansible.builtin.systemd:
+    name: docker
+    state: restarted
+
 - name: Restart ecs
   ansible.builtin.systemd:
     name: ecs

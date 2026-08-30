@@ -50,14 +50,9 @@
     state: stopped
     enabled: false
   failed_when: false
-  register: firewalld_stop
-
-- name: Restart Docker after firewalld is cleared
-  ansible.builtin.systemd:
-    name: docker
-    state: restarted
-  when: firewalld_stop is changed
-  notify: Restart ecs
+  notify:
+    - Restart docker
+    - Restart ecs
 
 - name: Drop password logins over SSH
   ansible.builtin.lineinfile:
