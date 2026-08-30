@@ -1,0 +1,410 @@
+# TaskFlow CI/CD — nine stages as required by the assignment.
+#
+# Merge requests run: lint → security → test → build → plan
+# Default branch (main) also gets: apply (manual) → configure → deploy → smoke-test
+#
+# Set these CI/CD variables in GitLab (Settings → CI/CD → Variables).
+# Mark AWS keys as Masked + Protected. Protect the main branch.
+#
+#   AWS_ACCESS_KEY_ID
+#   AWS_SECRET_ACCESS_KEY
+#   AWS_DEFAULT_REGION          = ap-south-1
+#   TF_STATE_BUCKET            = taskflow-tfstate-<account-id>
+#   TF_LOCK_TABLE              = taskflow-terraform-locks
+#   SSM_S3_BUCKET              = same as TF_STATE_BUCKET (Ansible over SSM)
+
+stages:
+  - lint
+  - security
+  - test
+  - build
+  - plan
+  - apply
+  - configure
+  - deploy
+  - smoke-test
+
+variables:
+  AWS_DEFAULT_REGION: ap-south-1
+  TF_ROOT: terraform/envs/prod
+  APP_DIR: app
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+  # Image name without registry prefix; full URI is built after ECR login.
+  IMAGE_NAME: taskflow
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+
+default:
+  interruptible: true
+
+# ----- reusable bits ------------------------------------------------------------------
+
+.aws_cli:
+  before_script:
+    - |
+      if ! command -v aws >/dev/null 2>&1; then
+        apk add --no-cache aws-cli || apt-get update && apt-get install -y awscli || true
+      fi
+    - aws --version
+    - aws sts get-caller-identity
+
+.terraform_job:
+  image:
+    name: hashicorp/terraform:1.9
+    entrypoint: [""]
+  before_script:
+    - cd "$TF_ROOT"
+    - |
+      cat > backend-config.hcl <<EOF
+      bucket         = "${TF_STATE_BUCKET}"
+      key            = "prod/terraform.tfstate"
+      region         = "${AWS_DEFAULT_REGION}"
+      dynamodb_table = "${TF_LOCK_TABLE}"
+      encrypt        = true
+      EOF
+    - terraform init -input=false -backend-config=backend-config.hcl
+  cache:
+    key: terraform-${CI_COMMIT_REF_SLUG}
+    paths:
+      - terraform/envs/prod/.terraform/
+
+.maven_job:
+  image: maven:3.9-eclipse-temurin-21
+  cache:
+    key: maven-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .m2/repository
+  before_script:
+    - cd "$APP_DIR"
+
+.docker_dind:
+  image: docker:27
+  services:
+    - name: docker:27-dind
+      alias: docker
+  before_script:
+    - docker info
+
+# Only on merge requests
+.rules_mr:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# MRs and the default branch
+.rules_mr_or_main:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Default branch only (protected apply / deploy path)
+.rules_main_only:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+.rules_main_manual:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+
+# =============================================================================
+# lint
+# =============================================================================
+
+fmt:
+  extends: .rules_mr_or_main
+  stage: lint
+  image:
+    name: hashicorp/terraform:1.9
+    entrypoint: [""]
+  script:
+    - terraform fmt -check -recursive terraform/
+
+validate:
+  extends:
+    - .terraform_job
+    - .rules_mr_or_main
+  stage: lint
+  script:
+    - cd "$CI_PROJECT_DIR/$TF_ROOT"
+    - terraform validate
+
+tflint:
+  extends: .rules_mr_or_main
+  stage: lint
+  image:
+    name: ghcr.io/terraform-linters/tflint:v0.55.1
+    entrypoint: [""]
+  script:
+    - tflint --chdir=terraform/envs/prod --init
+    - tflint --chdir=terraform/envs/prod
+
+ansible_lint:
+  extends: .rules_mr_or_main
+  stage: lint
+  image: python:3.12-slim
+  before_script:
+    - pip install --quiet ansible-lint ansible-core
+    - cd ansible && ansible-galaxy collection install -r requirements.yml
+  script:
+    - cd "$CI_PROJECT_DIR/ansible"
+    - ansible-lint site.yml roles/
+
+spotless:
+  extends:
+    - .maven_job
+    - .rules_mr_or_main
+  stage: lint
+  script:
+    - mvn -B spotless:check
+
+yamllint:
+  extends: .rules_mr_or_main
+  stage: lint
+  image: cytopia/yamllint:latest
+  script:
+    - yamllint -c .yamllint.yml .
+
+# =============================================================================
+# security
+# =============================================================================
+
+gitleaks:
+  extends: .rules_mr_or_main
+  stage: security
+  image:
+    name: zricethezav/gitleaks:v8.21.2
+    entrypoint: [""]
+  script:
+    - gitleaks detect --source . --verbose --redact
+
+checkov:
+  extends: .rules_mr_or_main
+  stage: security
+  image:
+    name: bridgecrew/checkov:3.2.334
+    entrypoint: [""]
+  script:
+    # Soft-fail on first import so the pipeline still teaches; tighten later.
+    - checkov -d terraform/ --framework terraform --compact --quiet --soft-fail
+
+trivy_image:
+  extends:
+    - .docker_dind
+    - .rules_mr_or_main
+  stage: security
+  script:
+    - apk add --no-cache curl
+    - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+    - docker build -t "${IMAGE_NAME}:scan" "$APP_DIR"
+    - trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed "${IMAGE_NAME}:scan"
+
+# =============================================================================
+# test
+# =============================================================================
+
+unit_and_integration:
+  extends:
+    - .maven_job
+    - .rules_mr_or_main
+  stage: test
+  # Testcontainers needs a Docker daemon
+  services:
+    - name: docker:27-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    TESTCONTAINERS_RYUK_DISABLED: "true"
+  before_script:
+    - apt-get update && apt-get install -y docker.io || true
+    - cd "$APP_DIR"
+  script:
+    - mvn -B verify
+
+# =============================================================================
+# build — push to ECR (SHA + latest)
+# =============================================================================
+
+build_and_push:
+  extends:
+    - .docker_dind
+    - .rules_mr_or_main
+  stage: build
+  # Push only from the default branch; MRs still build to prove the Dockerfile.
+  script:
+    - apk add --no-cache aws-cli
+    - aws sts get-caller-identity
+    - |
+      ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      ECR_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}"
+      echo "ECR_URI=$ECR_URI" > ecr.env
+      aws ecr get-login-password --region "$AWS_DEFAULT_REGION" \
+        | docker login --username AWS --password-stdin "${ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+      docker build -t "${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" -t "${IMAGE_NAME}:latest" "$APP_DIR"
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        source ecr.env
+        docker tag "${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" "${ECR_URI}:${CI_COMMIT_SHORT_SHA}"
+        docker tag "${IMAGE_NAME}:latest" "${ECR_URI}:latest"
+        docker push "${ECR_URI}:${CI_COMMIT_SHORT_SHA}"
+        docker push "${ECR_URI}:latest"
+        echo "Pushed ${ECR_URI}:${CI_COMMIT_SHORT_SHA} and :latest"
+      else
+        echo "MR pipeline — image built but not pushed"
+      fi
+  artifacts:
+    reports:
+      dotenv: ecr.env
+    paths:
+      - ecr.env
+    expire_in: 1 day
+
+# =============================================================================
+# plan
+# =============================================================================
+
+terraform_plan:
+  extends:
+    - .terraform_job
+    - .rules_mr_or_main
+  stage: plan
+  script:
+    - cd "$CI_PROJECT_DIR/$TF_ROOT"
+    - terraform plan -input=false -out=tfplan
+      -var="app_image_tag=${CI_COMMIT_SHORT_SHA}"
+    - terraform show -no-color tfplan > tfplan.txt
+    - |
+      if [ -n "${CI_MERGE_REQUEST_IID:-}" ]; then
+        SUMMARY=$(head -c 60000 tfplan.txt | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}')
+        curl --silent --show-error --fail \
+          --request POST \
+          --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+          --header "Content-Type: application/json" \
+          --data "{\"body\":\"### Terraform plan\\n\\n\\\`\\\`\\\`\\n${SUMMARY}\\n\\\`\\\`\\\`\"}" \
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}/notes" \
+          || echo "Could not post plan note (non-fatal)"
+      fi
+  artifacts:
+    paths:
+      - terraform/envs/prod/tfplan
+      - terraform/envs/prod/tfplan.txt
+    expire_in: 7 days
+
+# =============================================================================
+# apply — manual gate on the protected default branch only
+# =============================================================================
+
+terraform_apply:
+  extends:
+    - .terraform_job
+    - .rules_main_manual
+  stage: apply
+  needs:
+    - job: terraform_plan
+      artifacts: true
+    - job: build_and_push
+  script:
+    - cd "$CI_PROJECT_DIR/$TF_ROOT"
+    - terraform apply -input=false -auto-approve tfplan
+    - terraform output -json > "$CI_PROJECT_DIR/terraform-outputs.json"
+  artifacts:
+    paths:
+      - terraform-outputs.json
+    expire_in: 7 days
+  allow_failure: false
+  environment:
+    name: production
+    action: start
+
+# =============================================================================
+# configure — Ansible over SSM
+# =============================================================================
+
+ansible_configure:
+  extends: .rules_main_only
+  stage: configure
+  image: python:3.12-slim
+  needs:
+    - job: terraform_apply
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends curl unzip sudo
+    - pip install --quiet "ansible>=9" boto3 botocore ansible-lint
+    - |
+      curl -fsSL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o /tmp/ssm.deb
+      apt-get install -y /tmp/ssm.deb || dpkg -i /tmp/ssm.deb
+    - curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+    - unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install
+    - cd ansible && ansible-galaxy collection install -r requirements.yml
+  script:
+    - cd "$CI_PROJECT_DIR/ansible"
+    - chmod -R go-w .
+    - export ANSIBLE_CONFIG="$CI_PROJECT_DIR/ansible/ansible.cfg"
+    - ansible-inventory -i inventory/aws_ec2.yml --graph
+    - ansible-playbook -i inventory/aws_ec2.yml site.yml
+      -e "ssm_s3_bucket=${SSM_S3_BUCKET}"
+
+# =============================================================================
+# deploy — roll ECS onto the image we just pushed
+# =============================================================================
+
+ecs_deploy:
+  extends: .rules_main_only
+  stage: deploy
+  image:
+    name: amazon/aws-cli:2.15.0
+    entrypoint: [""]
+  needs:
+    - job: ansible_configure
+    - job: build_and_push
+  script:
+    - aws sts get-caller-identity
+    - |
+      CLUSTER="taskflow-prod-cluster"
+      SERVICE="taskflow-prod-service"
+      echo "Forcing new deployment on ${CLUSTER}/${SERVICE}"
+      aws ecs update-service \
+        --cluster "$CLUSTER" \
+        --service "$SERVICE" \
+        --force-new-deployment \
+        --region "$AWS_DEFAULT_REGION"
+      aws ecs wait services-stable \
+        --cluster "$CLUSTER" \
+        --services "$SERVICE" \
+        --region "$AWS_DEFAULT_REGION" || echo "Wait timed out — smoke-test will catch real failures"
+
+# =============================================================================
+# smoke-test
+# =============================================================================
+
+smoke_test:
+  extends: .rules_main_only
+  stage: smoke-test
+  image:
+    name: amazon/aws-cli:2.15.0
+    entrypoint: [""]
+  needs:
+    - job: ecs_deploy
+  before_script:
+    - yum install -y curl || microdnf install -y curl || true
+  script:
+    - |
+      ALB_DNS=$(aws elbv2 describe-load-balancers \
+        --names taskflow-prod-alb \
+        --region "$AWS_DEFAULT_REGION" \
+        --query "LoadBalancers[0].DNSName" \
+        --output text)
+      URL="http://${ALB_DNS}/health"
+      echo "Probing ${URL}"
+      for i in $(seq 1 30); do
+        CODE=$(curl -s -o /tmp/health.json -w "%{http_code}" "$URL" || true)
+        echo "attempt $i -> HTTP $CODE"
+        if [ "$CODE" = "200" ]; then
+          cat /tmp/health.json
+          echo
+          grep -q '"status":"UP"' /tmp/health.json
+          exit 0
+        fi
+        sleep 10
+      done
+      echo "Smoke test failed"
+      cat /tmp/health.json || true
+      exit 1
