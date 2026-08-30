@@ -17,3 +17,7 @@ output "service_id" {
 output "service_name" {
   value = aws_ecs_service.app.name
 }
+
+output "horizontal_scaling_enabled" {
+  value = var.enable_horizontal_scaling
+}

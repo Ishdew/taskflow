@@ -90,6 +90,28 @@ variable "stop_timeout_seconds" {
   default     = 30
 }
 
+variable "enable_horizontal_scaling" {
+  description = "Target-tracking autoscaling on desired task count."
+  type        = bool
+  default     = true
+}
+
+variable "horizontal_min_capacity" {
+  type    = number
+  default = 1
+}
+
+variable "horizontal_max_capacity" {
+  type    = number
+  default = 2
+}
+
+variable "horizontal_cpu_target" {
+  description = "Keep average CPU near this % by adding/removing tasks."
+  type        = number
+  default     = 60
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

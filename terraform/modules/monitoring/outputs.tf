@@ -14,10 +14,18 @@ output "sns_topic_name" {
   value = aws_sns_topic.alerts.name
 }
 
-output "cpu_alarm_arn" {
+output "cpu_high_alarm_arn" {
   value = aws_cloudwatch_metric_alarm.ecs_cpu_high.arn
 }
 
-output "memory_alarm_arn" {
+output "memory_high_alarm_arn" {
   value = aws_cloudwatch_metric_alarm.ecs_memory_high.arn
+}
+
+output "cpu_low_alarm_arn" {
+  value = aws_cloudwatch_metric_alarm.ecs_cpu_low.arn
+}
+
+output "memory_low_alarm_arn" {
+  value = aws_cloudwatch_metric_alarm.ecs_memory_low.arn
 }

@@ -21,9 +21,9 @@ resource "aws_security_group" "ecs_host" {
   vpc_id      = var.vpc_id
 
   ingress {
-    description     = "App traffic from ALB"
-    from_port       = 8080
-    to_port         = 8080
+    description     = "Dynamic ECS host ports from the ALB"
+    from_port       = 32768
+    to_port         = 65535
     protocol        = "tcp"
     security_groups = [var.alb_security_group_id]
   }

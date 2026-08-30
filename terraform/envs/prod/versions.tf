@@ -6,6 +6,14 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.82"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.7"
+    }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.7"
+    }
   }
 
   # Bucket details come from backend-config at init time.

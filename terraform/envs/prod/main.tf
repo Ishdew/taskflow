@@ -9,6 +9,12 @@ locals {
   }
 
   container_image = "${module.ecr.repository_url}:${var.app_image_tag}"
+
+  size_ladder = [
+    { cpu = 256, memory = 512 },
+    { cpu = 512, memory = 1024 },
+    { cpu = 1024, memory = 2048 },
+  ]
 }
 
 module "network" {
@@ -99,37 +105,58 @@ resource "aws_iam_role_policy" "ecs_task_execution_db_secret" {
 module "monitoring" {
   source = "../../modules/monitoring"
 
-  name_prefix        = local.name_prefix
-  cluster_name       = local.cluster_name
-  service_name       = local.service_name
-  log_retention_days = var.log_retention_days
-  cpu_threshold      = var.alarm_cpu_threshold
-  memory_threshold   = var.alarm_memory_threshold
-  tags               = local.common_tags
+  name_prefix           = local.name_prefix
+  cluster_name          = local.cluster_name
+  service_name          = local.service_name
+  log_retention_days    = var.log_retention_days
+  cpu_high_threshold    = var.alarm_cpu_high_threshold
+  memory_high_threshold = var.alarm_memory_high_threshold
+  cpu_low_threshold     = var.alarm_cpu_low_threshold
+  memory_low_threshold  = var.alarm_memory_low_threshold
+  tags                  = local.common_tags
 }
 
 module "ecs_service" {
   source = "../../modules/ecs-service"
 
+  name_prefix               = local.name_prefix
+  cluster_id                = module.ecs_cluster.cluster_id
+  cluster_name              = module.ecs_cluster.cluster_name
+  capacity_provider_name    = module.ecs_cluster.capacity_provider_name
+  service_name              = local.service_name
+  container_image           = local.container_image
+  container_port            = var.app_port
+  task_cpu                  = var.task_cpu
+  task_memory               = var.task_memory
+  desired_count             = var.ecs_service_desired_count
+  task_execution_role_arn   = module.iam.ecs_task_execution_role_arn
+  task_role_arn             = module.iam.ecs_task_role_arn
+  target_group_arn          = module.alb.target_group_arn
+  log_group_name            = module.monitoring.log_group_name
+  db_host                   = module.rds.db_endpoint
+  db_port                   = module.rds.db_port
+  db_name                   = module.rds.db_name
+  db_secret_arn             = module.rds.secret_arn
+  app_environment           = var.environment
+  aws_region                = var.aws_region
+  enable_horizontal_scaling = var.enable_horizontal_scaling
+  horizontal_min_capacity   = var.horizontal_min_capacity
+  horizontal_max_capacity   = var.horizontal_max_capacity
+  horizontal_cpu_target     = var.horizontal_cpu_target
+  tags                      = local.common_tags
+}
+
+module "vertical_scaler" {
+  source = "../../modules/vertical-scaler"
+
   name_prefix             = local.name_prefix
-  cluster_id              = module.ecs_cluster.cluster_id
-  cluster_name            = module.ecs_cluster.cluster_name
-  capacity_provider_name  = module.ecs_cluster.capacity_provider_name
+  cluster_name            = local.cluster_name
   service_name            = local.service_name
-  container_image         = local.container_image
-  container_port          = var.app_port
-  task_cpu                = var.task_cpu
-  task_memory             = var.task_memory
-  desired_count           = var.ecs_service_desired_count
+  sns_topic_arn           = module.monitoring.sns_topic_arn
   task_execution_role_arn = module.iam.ecs_task_execution_role_arn
   task_role_arn           = module.iam.ecs_task_role_arn
-  target_group_arn        = module.alb.target_group_arn
-  log_group_name          = module.monitoring.log_group_name
-  db_host                 = module.rds.db_endpoint
-  db_port                 = module.rds.db_port
-  db_name                 = module.rds.db_name
-  db_secret_arn           = module.rds.secret_arn
-  app_environment         = var.environment
-  aws_region              = var.aws_region
+  size_ladder             = local.size_ladder
+  lambda_source_dir       = "${path.root}/../../../lambda/vertical_scaler"
+  log_retention_days      = var.log_retention_days
   tags                    = local.common_tags
 }

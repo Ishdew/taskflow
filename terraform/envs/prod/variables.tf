@@ -129,12 +129,42 @@ variable "log_retention_days" {
   default = 14
 }
 
-variable "alarm_cpu_threshold" {
+variable "alarm_cpu_high_threshold" {
   type    = number
   default = 80
 }
 
-variable "alarm_memory_threshold" {
+variable "alarm_memory_high_threshold" {
   type    = number
   default = 80
+}
+
+variable "alarm_cpu_low_threshold" {
+  type    = number
+  default = 20
+}
+
+variable "alarm_memory_low_threshold" {
+  type    = number
+  default = 20
+}
+
+variable "enable_horizontal_scaling" {
+  type    = bool
+  default = true
+}
+
+variable "horizontal_min_capacity" {
+  type    = number
+  default = 1
+}
+
+variable "horizontal_max_capacity" {
+  type    = number
+  default = 2
+}
+
+variable "horizontal_cpu_target" {
+  type    = number
+  default = 60
 }

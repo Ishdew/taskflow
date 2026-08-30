@@ -56,6 +56,18 @@ output "sns_alerts_topic_arn" {
   value = module.monitoring.sns_topic_arn
 }
 
+output "vertical_scaler_function_name" {
+  value = module.vertical_scaler.lambda_function_name
+}
+
+output "vertical_scaler_size_ladder" {
+  value = module.vertical_scaler.size_ladder
+}
+
+output "horizontal_scaling_enabled" {
+  value = module.ecs_service.horizontal_scaling_enabled
+}
+
 output "ecs_instance_profile_name" {
   value = module.iam.ecs_instance_profile_name
 }

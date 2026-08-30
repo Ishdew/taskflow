@@ -15,15 +15,26 @@ variable "log_retention_days" {
   default = 14
 }
 
-variable "cpu_threshold" {
-  description = "Alarm when average CPU % goes above this."
+variable "cpu_high_threshold" {
+  description = "Scale up when average CPU % stays above this."
   type        = number
   default     = 80
 }
 
-variable "memory_threshold" {
+variable "memory_high_threshold" {
   type    = number
   default = 80
+}
+
+variable "cpu_low_threshold" {
+  description = "Scale down when average CPU % stays below this."
+  type        = number
+  default     = 20
+}
+
+variable "memory_low_threshold" {
+  type    = number
+  default = 20
 }
 
 variable "tags" {

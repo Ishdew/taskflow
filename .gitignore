@@ -64,6 +64,7 @@ venv/
 
 # Lambda build artifacts are produced by Terraform, not committed
 *.zip
+**/modules/**/.build/
 
 ### Docker ###
 .docker/
