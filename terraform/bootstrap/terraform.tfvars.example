@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars and fill in your account id.
+# Bucket names are global, so include the account id to stay unique.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#   terraform init
+#   terraform apply
+
+aws_region        = "ap-south-1"
+project_name      = "taskflow"
+state_bucket_name = "taskflow-tfstate-123456789012"
+lock_table_name   = "taskflow-terraform-locks"
