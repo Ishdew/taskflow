@@ -1,0 +1,19 @@
+# Keep the build context small and free of secrets / local junk.
+
+target/
+.git/
+.gitignore
+.gitattributes
+.idea/
+*.iml
+.vscode/
+*.log
+*.md
+HELP.md
+
+# Tests are not needed to produce the production jar.
+src/test/
+
+# Local IDE / OS noise
+.DS_Store
+Thumbs.db

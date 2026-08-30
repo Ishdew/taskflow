@@ -1,0 +1,70 @@
+# Local setup for the TaskFlow API and PostgreSQL.
+#
+# Start:
+#   docker compose up --build -d
+#   curl http://localhost:8080/health
+#
+# Stop:
+#   docker compose downn
+#
+# Postgres uses port 5433 on the host to avoid conflicts with local PostgreSQL.
+# Other containers can connect to it using db:5432.
+
+name: taskflow
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: taskflow-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-taskflow}
+      POSTGRES_USER: ${DB_USERNAME:-taskflow}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-taskflow_local}
+    ports:
+      - "${DB_HOST_PORT:-5433}:5432"
+    volumes:
+      - taskflow_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    image: taskflow:local
+    container_name: taskflow-app
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-taskflow}
+      DB_USERNAME: ${DB_USERNAME:-taskflow}
+      DB_PASSWORD: ${DB_PASSWORD:-taskflow_local}
+      DB_SSL_MODE: prefer
+      APP_ENVIRONMENT: local
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      APP_LOG_LEVEL: ${APP_LOG_LEVEL:-INFO}
+      SERVER_PORT: "8080"
+      SHUTDOWN_TIMEOUT: 25s
+    # Give the app some time to shut down cleanly.
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health/liveness"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  taskflow_pgdata:
+    name: taskflow_pgdata
