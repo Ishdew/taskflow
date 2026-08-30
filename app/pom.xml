@@ -57,9 +57,11 @@
 			<artifactId>flyway-database-postgresql</artifactId>
 		</dependency>
 
+		<!-- Pin past CVE-2026-54291 (channel-binding downgrade in 42.7.4–42.7.11). -->
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
+			<version>42.7.12</version>
 			<scope>runtime</scope>
 		</dependency>
 

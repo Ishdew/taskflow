@@ -21,8 +21,10 @@ RUN --mount=type=cache,target=/root/.m2 \
 # ----- runtime ----------------------------------------------------------------------------
 FROM eclipse-temurin:21-jre-alpine AS runtime
 
-# curl is only used for the health check.
-RUN apk add --no-cache curl \
+# curl is only used for the health check. Upgrade packages so Trivy does not
+# flag known HIGH CVEs in the base image (e.g. openssl).
+RUN apk upgrade --no-cache \
+ && apk add --no-cache curl \
  && addgroup -S -g 10001 taskflow \
  && adduser -S -u 10001 -G taskflow taskflow
 
