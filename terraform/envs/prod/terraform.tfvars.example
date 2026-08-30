@@ -1,9 +1,35 @@
 # Copy to terraform.tfvars if you want to override defaults:
 #   cp terraform.tfvars.example terraform.tfvars
 
-aws_region          = "ap-south-1"
-project_name        = "taskflow"
-environment         = "prod"
-vpc_cidr            = "10.0.0.0/16"
+aws_region   = "ap-south-1"
+project_name = "taskflow"
+environment  = "prod"
+vpc_cidr     = "10.0.0.0/16"
+
 ecr_repository_name = "taskflow"
 ecr_max_image_count = 20
+
+# Push an image before apply, or the ECS service will fail to start:
+#   docker build -t taskflow ./app
+#   aws ecr get-login-password | docker login ...
+#   docker tag taskflow:latest <ecr_url>:latest && docker push <ecr_url>:latest
+app_image_tag = "latest"
+
+ecs_instance_type       = "t3.small"
+ecs_min_size            = 1
+ecs_max_size            = 2
+ecs_desired_capacity    = 1
+ecs_service_desired_count = 1
+
+task_cpu    = 256
+task_memory = 512
+
+db_instance_class        = "db.t4g.micro"
+db_allocated_storage_gb  = 20
+db_engine_version        = "16.6"
+db_skip_final_snapshot   = true
+db_deletion_protection   = false
+
+log_retention_days     = 14
+alarm_cpu_threshold    = 80
+alarm_memory_threshold = 80
