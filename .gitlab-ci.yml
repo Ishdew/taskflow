@@ -225,7 +225,7 @@ unit_and_integration:
     - mvn -B verify
 
 # =============================================================================
-# build — push to ECR (SHA + latest)
+# build — push immutable SHA tag to ECR (repo tags are IMMUTABLE; no :latest)
 # =============================================================================
 
 build_and_push:
@@ -240,18 +240,20 @@ build_and_push:
     - |
       ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
       ECR_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}"
-      echo "ECR_URI=$ECR_URI" > ecr.env
+      IMAGE_TAG="${CI_COMMIT_SHORT_SHA}"
+      {
+        echo "ECR_URI=${ECR_URI}"
+        echo "IMAGE_TAG=${IMAGE_TAG}"
+      } > ecr.env
       aws ecr get-login-password --region "$AWS_DEFAULT_REGION" \
         | docker login --username AWS --password-stdin "${ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
-      docker build -t "${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" -t "${IMAGE_NAME}:latest" "$APP_DIR"
+      docker build -t "${IMAGE_NAME}:${IMAGE_TAG}" "$APP_DIR"
     - |
       if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
         source ecr.env
-        docker tag "${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" "${ECR_URI}:${CI_COMMIT_SHORT_SHA}"
-        docker tag "${IMAGE_NAME}:latest" "${ECR_URI}:latest"
-        docker push "${ECR_URI}:${CI_COMMIT_SHORT_SHA}"
-        docker push "${ECR_URI}:latest"
-        echo "Pushed ${ECR_URI}:${CI_COMMIT_SHORT_SHA} and :latest"
+        docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${ECR_URI}:${IMAGE_TAG}"
+        docker push "${ECR_URI}:${IMAGE_TAG}"
+        echo "Pushed ${ECR_URI}:${IMAGE_TAG}"
       else
         echo "MR pipeline — image built but not pushed"
       fi
@@ -359,17 +361,57 @@ ecs_deploy:
   needs:
     - job: ansible_configure
     - job: build_and_push
+      artifacts: true
+  before_script:
+    - yum install -y jq || microdnf install -y jq
   script:
     - aws sts get-caller-identity
     - |
+      set -euo pipefail
       CLUSTER="taskflow-prod-cluster"
       SERVICE="taskflow-prod-service"
-      echo "Forcing new deployment on ${CLUSTER}/${SERVICE}"
+      IMAGE="${ECR_URI}:${IMAGE_TAG}"
+      echo "Rolling ${CLUSTER}/${SERVICE} onto ${IMAGE}"
+
+      TASK_ARN=$(aws ecs describe-services \
+        --cluster "$CLUSTER" \
+        --services "$SERVICE" \
+        --region "$AWS_DEFAULT_REGION" \
+        --query 'services[0].taskDefinition' \
+        --output text)
+
+      aws ecs describe-task-definition \
+        --task-definition "$TASK_ARN" \
+        --region "$AWS_DEFAULT_REGION" \
+        --query 'taskDefinition' \
+        --output json \
+      | jq --arg IMAGE "$IMAGE" '
+          .containerDefinitions[0].image = $IMAGE
+          | del(
+              .taskDefinitionArn,
+              .revision,
+              .status,
+              .requiresAttributes,
+              .compatibilities,
+              .registeredAt,
+              .registeredBy,
+              .deregisteredAt
+            )
+        ' > /tmp/new-task-def.json
+
+      NEW_ARN=$(aws ecs register-task-definition \
+        --cli-input-json file:///tmp/new-task-def.json \
+        --region "$AWS_DEFAULT_REGION" \
+        --query 'taskDefinition.taskDefinitionArn' \
+        --output text)
+
       aws ecs update-service \
         --cluster "$CLUSTER" \
         --service "$SERVICE" \
+        --task-definition "$NEW_ARN" \
         --force-new-deployment \
         --region "$AWS_DEFAULT_REGION"
+
       aws ecs wait services-stable \
         --cluster "$CLUSTER" \
         --services "$SERVICE" \
