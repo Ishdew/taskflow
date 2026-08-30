@@ -1,0 +1,28 @@
+---
+# Ship host + ECS agent logs into the same CloudWatch log group the app uses.
+# Keep our desired JSON outside the agent's own etc/ folder — fetch-config
+# rewrites files there, which would make every run look "changed".
+
+- name: Install the CloudWatch agent
+  ansible.builtin.dnf:
+    name: amazon-cloudwatch-agent
+    state: present
+
+- name: Create config directory for TaskFlow
+  ansible.builtin.file:
+    path: /etc/taskflow
+    state: directory
+    mode: "0755"
+
+- name: Write CloudWatch agent config
+  ansible.builtin.template:
+    src: amazon-cloudwatch-agent.json.j2
+    dest: /etc/taskflow/amazon-cloudwatch-agent.json
+    mode: "0644"
+  notify: Restart cloudwatch agent
+
+- name: Enable and start the CloudWatch agent
+  ansible.builtin.systemd:
+    name: amazon-cloudwatch-agent
+    enabled: true
+    state: started

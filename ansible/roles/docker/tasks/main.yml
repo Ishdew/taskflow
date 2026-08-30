@@ -1,0 +1,19 @@
+---
+# ECS-optimized AMIs already ship Docker. This role just makes sure it stays up.
+
+- name: Install Docker if it is missing
+  ansible.builtin.dnf:
+    name: docker
+    state: present
+
+- name: Start and enable Docker
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Make sure the docker service is active
+  ansible.builtin.command: docker info
+  register: docker_info
+  changed_when: false
+  failed_when: docker_info.rc != 0

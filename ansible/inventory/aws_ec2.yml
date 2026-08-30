@@ -1,0 +1,24 @@
+---
+# Finds ECS hosts by the tags Terraform puts on them. No hard-coded IPs.
+plugin: amazon.aws.aws_ec2
+regions:
+  - ap-south-1
+
+filters:
+  instance-state-name: running
+  tag:Project: taskflow
+  tag:Role: ecs-host
+
+# Use the instance id as the inventory hostname; SSM connects by id.
+hostnames:
+  - instance-id
+
+compose:
+  ansible_host: instance_id
+
+keyed_groups:
+  - key: tags.Role
+    prefix: role
+    separator: _
+
+leading_separator: false

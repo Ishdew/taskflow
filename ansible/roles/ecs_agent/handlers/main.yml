@@ -1,0 +1,5 @@
+---
+- name: Restart ecs
+  ansible.builtin.systemd:
+    name: ecs
+    state: restarted

@@ -1,0 +1,26 @@
+---
+# Keep the ECS agent pointed to the cluster. User-data already seeds this file;
+# Ansible owns the final contents so rebuilds stay consistent.
+
+- name: Install the ECS agent package if needed
+  ansible.builtin.dnf:
+    name: ecs-init
+    state: present
+
+- name: Write /etc/ecs/ecs.config
+  ansible.builtin.copy:
+    dest: /etc/ecs/ecs.config
+    mode: "0644"
+    content: |
+      ECS_CLUSTER={{ ecs_cluster_name }}
+      ECS_ENABLE_CONTAINER_METADATA=true
+      ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","awslogs"]
+      ECS_ENABLE_TASK_IAM_ROLE=true
+      ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true
+  notify: Restart ecs
+
+- name: Start and enable the ECS agent
+  ansible.builtin.systemd:
+    name: ecs
+    enabled: true
+    state: started

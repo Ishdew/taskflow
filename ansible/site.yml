@@ -1,0 +1,14 @@
+---
+# Configure every running ECS host Terraform tagged for TaskFlow.
+#
+#   ansible-playbook site.yml -e ssm_s3_bucket=taskflow-tfstate-YOUR_ACCOUNT_ID
+
+- name: Configure TaskFlow ECS hosts
+  hosts: aws_ec2
+  gather_facts: true
+
+  roles:
+    - common
+    - docker
+    - ecs_agent
+    - cloudwatch_agent

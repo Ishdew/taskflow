@@ -43,6 +43,8 @@ ansible/inventory/hosts.ini
 ansible/*.log
 .vault_pass
 vault_pass.txt
+# Optional local overrides with account-specific bucket names
+ansible/group_vars/all.local.yml
 
 ### Java / Maven ###
 target/

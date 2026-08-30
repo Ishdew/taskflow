@@ -1,0 +1,72 @@
+---
+# Hardening for Amazon Linux 2023 ECS hosts.
+#
+# Do NOT enable firewalld here. Docker and ECS own the iptables rules; turning
+# on firewalld clears the DOCKER chains and breaks published ports + DB access.
+# Network filtering stays on the AWS security groups Terraform already creates.
+#
+# Automatic updates use dnf-automatic (AL2023's version of unattended-upgrades).
+
+- name: Install dnf-automatic for security updates
+  ansible.builtin.dnf:
+    name: dnf-automatic
+    state: present
+
+- name: Turn on automatic security updates
+  ansible.builtin.copy:
+    dest: /etc/dnf/automatic.conf
+    mode: "0644"
+    content: |
+      [commands]
+      upgrade_type = security
+      random_sleep = 0
+      network_online_timeout = 60
+      download_updates = yes
+      apply_updates = yes
+
+      [emitters]
+      system_name = None
+      emit_via = stdio
+
+      [email]
+      email_from = root@localhost
+      email_to = root
+      email_host = localhost
+
+      [base]
+      debuglevel = 1
+  notify: Restart dnf-automatic
+
+- name: Enable dnf-automatic timer
+  ansible.builtin.systemd:
+    name: dnf-automatic.timer
+    enabled: true
+    state: started
+
+# If an older playbook run started firewalld, shut it back down and fix Docker.
+- name: Make sure firewalld is stopped (it fights Docker/ECS)
+  ansible.builtin.systemd:
+    name: firewalld
+    state: stopped
+    enabled: false
+  failed_when: false
+  register: firewalld_stop
+
+- name: Restart Docker after firewalld is cleared
+  ansible.builtin.systemd:
+    name: docker
+    state: restarted
+  when: firewalld_stop is changed
+  notify: Restart ecs
+
+- name: Drop password logins over SSH
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^{{ item.key }}"
+    line: "{{ item.key }} {{ item.value }}"
+    state: present
+  loop:
+    - { key: "PasswordAuthentication", value: "no" }
+    - { key: "ChallengeResponseAuthentication", value: "no" }
+    - { key: "PermitRootLogin", value: "prohibit-password" }
+  notify: Reload sshd
