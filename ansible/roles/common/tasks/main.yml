@@ -61,7 +61,10 @@
     line: "{{ item.key }} {{ item.value }}"
     state: present
   loop:
-    - { key: "PasswordAuthentication", value: "no" }
-    - { key: "ChallengeResponseAuthentication", value: "no" }
-    - { key: "PermitRootLogin", value: "prohibit-password" }
+    - key: PasswordAuthentication
+      value: "no"
+    - key: ChallengeResponseAuthentication
+      value: "no"
+    - key: PermitRootLogin
+      value: prohibit-password
   notify: Reload sshd

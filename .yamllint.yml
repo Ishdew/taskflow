@@ -5,6 +5,8 @@ ignore: |
   .terraform/
   target/
   evidence/
+  # Springdoc-generated; sequence indent differs from Ansible playbooks.
+  docs/openapi.yaml
 
 rules:
   # CI job definitions and Ansible tasks routinely exceed 80 columns; wrapping
@@ -12,11 +14,11 @@ rules:
   line-length:
     max: 160
     level: warning
-  # Ansible convention is 2-space indentation with list items indented under
-  # their parent key.
+  document-start: disable
+  # Ansible indents list items; some other YAML files do not — allow both.
   indentation:
     spaces: 2
-    indent-sequences: true
+    indent-sequences: consistent
   comments:
     min-spaces-from-content: 1
   truthy:
