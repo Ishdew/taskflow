@@ -106,12 +106,12 @@ variable "db_allocated_storage_gb" {
 
 variable "db_engine_version" {
   type    = string
-  default = "16.6"
+  default = "16.15"
 }
 
 variable "db_backup_retention_days" {
   type    = number
-  default = 7
+  default = 1
 }
 
 variable "db_skip_final_snapshot" {

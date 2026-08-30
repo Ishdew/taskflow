@@ -24,11 +24,12 @@ ecs_service_desired_count = 1
 task_cpu    = 256
 task_memory = 512
 
-db_instance_class       = "db.t4g.micro"
-db_allocated_storage_gb = 20
-db_engine_version       = "16.6"
-db_skip_final_snapshot  = true
-db_deletion_protection  = false
+db_instance_class        = "db.t4g.micro"
+db_allocated_storage_gb  = 20
+db_engine_version        = "16.15"
+db_backup_retention_days = 1
+db_skip_final_snapshot   = true
+db_deletion_protection   = false
 
 log_retention_days           = 14
 alarm_cpu_high_threshold     = 80

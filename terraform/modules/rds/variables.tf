@@ -37,12 +37,12 @@ variable "allocated_storage_gb" {
 
 variable "engine_version" {
   type    = string
-  default = "16.4"
+  default = "16.15"
 }
 
 variable "backup_retention_days" {
   type    = number
-  default = 7
+  default = 1
 }
 
 variable "skip_final_snapshot" {
