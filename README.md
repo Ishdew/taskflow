@@ -274,7 +274,9 @@ python3 -m venv ~/ansible-venv
 source ~/ansible-venv/bin/activate
 pip install "ansible>=9" boto3 botocore
 
-cp -a "/mnt/c/Users/Admin/Desktop/Platform Engineer Assignment/taskflow/ansible" ~/taskflow-ansible
+# Copy the ansible/ directory onto a Linux path. Ansible ignores ansible.cfg on /mnt/c because
+# the Windows mount is world-writable.
+cp -a /mnt/c/path/to/taskflow/ansible ~/taskflow-ansible
 cd ~/taskflow-ansible
 ansible-galaxy collection install -r requirements.yml
 
@@ -328,7 +330,7 @@ GitLab → Settings → CI/CD → Variables:
 | `AWS_ACCESS_KEY_ID` | your key | Masked |
 | `AWS_SECRET_ACCESS_KEY` | your secret | Masked |
 | `AWS_DEFAULT_REGION` | `ap-south-1` | |
-| `TF_STATE_BUCKET` | `taskflow-tfstate-467640460026` | |
+| `TF_STATE_BUCKET` | `taskflow-tfstate-<account-id>` | |
 | `TF_LOCK_TABLE` | `taskflow-terraform-locks` | |
 | `SSM_S3_BUCKET` | same as state bucket | |
 

@@ -1,0 +1,105 @@
+---
+# Checkov configuration for the TaskFlow Terraform.
+#
+# The CI `security` stage runs `checkov --config-file .checkov.yaml` and FAILS the pipeline on any
+# finding that is not listed below. Every skip is a decision someone made on purpose, with the
+# reason written down next to it.
+#
+# Adding a skip is a deliberate act: if a new finding appears, either fix it or add it here with a
+# one-line justification. An undocumented skip is indistinguishable from an unnoticed bug.
+
+directory:
+  - terraform
+
+framework:
+  - terraform
+
+compact: true
+quiet: true
+download-external-modules: false
+
+skip-check:
+  # --- TLS terminates at CloudFront, not at the load balancer (docs/adr/008) -------------------
+  # There is no registered domain for this project, so there is no ACM certificate to put on the
+  # ALB. HTTPS is provided by the CloudFront default *.cloudfront.net certificate, and the ALB
+  # only accepts traffic from CloudFront.
+  - CKV_AWS_2          # ALB listener should use HTTPS
+  - CKV_AWS_103        # Listener should enforce TLS 1.2+
+  - CKV2_AWS_20        # ALB should redirect HTTP to HTTPS
+  - CKV_AWS_260        # Security group allows 0.0.0.0/0 on port 80
+
+  # --- Cost tradeoffs on a demo stack ---------------------------------------------------------
+  # AWS WAF is ~5 USD per month per web ACL plus per-request charges.
+  - CKV2_AWS_28        # WAF in front of the ALB
+  # ALB access logs and S3 server access logs each need another bucket, which would itself need
+  # logging. Request-level visibility comes from ALB CloudWatch metrics plus the app's JSON logs.
+  - CKV_AWS_91         # ALB access logging
+  - CKV_AWS_18         # S3 access logging
+  # VPC flow log ingestion is billed per GB and the NAT gateway is already the dominant cost.
+  - CKV2_AWS_11        # VPC flow logging
+  # Multi-AZ doubles the RDS instance cost. Single-AZ is the documented tradeoff; the runbook
+  # covers snapshot and point-in-time restore.
+  - CKV_AWS_157        # RDS Multi-AZ
+  # Single-region project; there is no second region to replicate state into.
+  - CKV_AWS_144        # S3 cross-region replication
+
+  # --- Customer-managed KMS keys cost 1 USD/month each and buy nothing here -------------------
+  # Each of these resources is already encrypted with an AWS-managed key. None of them store
+  # secret material: the log groups hold application logs, the Lambda environment holds a cluster
+  # name, a service name and the size ladder.
+  - CKV_AWS_158        # CloudWatch log group KMS encryption
+  - CKV_AWS_136        # ECR KMS encryption (AES256 is enabled)
+  - CKV_AWS_145        # S3 KMS encryption (AES256 is enabled)
+  - CKV_AWS_119        # DynamoDB KMS encryption
+  - CKV_AWS_173        # Lambda environment variable KMS encryption
+  # Worth spelling out: a CloudWatch alarm cannot publish to an SNS topic encrypted with the
+  # AWS-managed alias/aws/sns key, because that key policy does not grant cloudwatch.amazonaws.com
+  # the GenerateDataKey call. Encrypting this topic therefore requires a CMK, to protect messages
+  # that say "CPU is high".
+  - CKV_AWS_26         # SNS topic encryption
+
+  # --- Vertical scaler Lambda -----------------------------------------------------------------
+  # One short-lived function whose entire output is already in CloudWatch Logs.
+  - CKV_AWS_50         # Lambda X-Ray tracing
+  # The trigger is a CloudWatch alarm that stays in ALARM and re-notifies while the condition
+  # persists, so a dropped invocation is retried by the next evaluation rather than lost.
+  - CKV_AWS_116        # Lambda dead letter queue
+  # It only calls the ECS control plane, which is a public API. Moving it into the VPC would
+  # require NAT or interface endpoints for no security gain.
+  - CKV_AWS_117        # Lambda inside a VPC
+  # Requires an AWS Signer profile; the artifact is built from this repository by CI.
+  - CKV_AWS_272        # Lambda code signing
+
+  # --- Database ------------------------------------------------------------------------------
+  # The application authenticates with the Secrets Manager credential path (docs/adr/006).
+  - CKV_AWS_161        # RDS IAM database authentication
+  # Performance Insights is enabled instead and covers the same diagnostic need (which query is
+  # saturating the instance) without the per-instance enhanced monitoring charge.
+  - CKV_AWS_118        # RDS enhanced monitoring
+  # Would need a custom parameter group. The postgresql log export is enabled.
+  - CKV2_AWS_30        # RDS query logging
+  # Variable-controlled and off by default so `terraform destroy` can tear the demo down.
+  - CKV_AWS_293        # RDS deletion protection
+
+  # --- Workload ------------------------------------------------------------------------------
+  # Tomcat needs a writable temp directory; enforcing a read-only root filesystem would require a
+  # tmpfs mount plus application changes to relocate the work directory.
+  - CKV_AWS_336        # ECS task read-only root filesystem
+  # The public subnets exist to host the ALB and the NAT gateway, which need public addressing.
+  - CKV_AWS_130        # Subnet assigns public IPs
+
+  # --- IAM wildcards that the AWS API genuinely requires --------------------------------------
+  # ecs:RegisterTaskDefinition and ecr:GetAuthorizationToken do not support resource-level ARNs.
+  # The modules note this inline at each statement.
+  - CKV_AWS_111        # IAM write access without constraint
+  - CKV_AWS_109        # IAM policy permits data exfiltration
+  - CKV_AWS_356        # IAM policy allows "*" on resources
+
+  # --- Retention ------------------------------------------------------------------------------
+  # Log retention is deliberately 14 days (var.log_retention_days) to keep storage cheap; the
+  # assignment requires an explicit retention policy, not a long one.
+  - CKV_AWS_338        # CloudWatch log group retained for at least 1 year
+  # The lock table holds transient lock rows. Losing it costs nothing; it is recreated empty.
+  - CKV_AWS_28         # DynamoDB point-in-time recovery
+  # Nothing consumes state-change events from the state bucket.
+  - CKV2_AWS_62        # S3 event notifications

@@ -30,7 +30,7 @@ RUN apk upgrade --no-cache \
 
 WORKDIR /app
 
-# Copy layers seperately so uncahnged dependencies can be reused.
+# Copy layers separately so unchanged dependencies can be reused.
 COPY --from=build --chown=taskflow:taskflow /workspace/extracted/dependencies/ ./
 COPY --from=build --chown=taskflow:taskflow /workspace/extracted/spring-boot-loader/ ./
 COPY --from=build --chown=taskflow:taskflow /workspace/extracted/snapshot-dependencies/ ./

@@ -26,6 +26,16 @@ resource "aws_vpc" "this" {
   })
 }
 
+# The VPC's default security group allows all traffic between anything that lands in it. Nothing in
+# this stack uses it, so strip its rules rather than leave an open group available by accident.
+resource "aws_default_security_group" "this" {
+  vpc_id = aws_vpc.this.id
+
+  tags = merge(local.common_tags, {
+    Name = "${var.name_prefix}-default-do-not-use"
+  })
+}
+
 resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
 

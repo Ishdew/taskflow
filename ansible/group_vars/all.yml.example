@@ -2,9 +2,9 @@
 # Defaults that change per account. Either:
 #   cp all.yml.example values into all.yml
 # or pass on the CLI:
-#   ansible-playbook site.yml -e ssm_s3_bucket=taskflow-tfstate-467640460026
+#   ansible-playbook site.yml -e ssm_s3_bucket=taskflow-tfstate-<account-id>
 
-ssm_s3_bucket: taskflow-tfstate-467640460026
+ssm_s3_bucket: taskflow-tfstate-ACCOUNT_ID
 ecs_cluster_name: taskflow-prod-cluster
 cloudwatch_log_group: /ecs/taskflow-prod
 aws_region: ap-south-1

@@ -5,7 +5,7 @@
 #   curl http://localhost:8080/health
 #
 # Stop:
-#   docker compose downn
+#   docker compose down
 #
 # Postgres uses port 5433 on the host to avoid conflicts with local PostgreSQL.
 # Other containers can connect to it using db:5432.

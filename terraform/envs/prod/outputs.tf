@@ -56,6 +56,11 @@ output "sns_alerts_topic_arn" {
   value = module.monitoring.sns_topic_arn
 }
 
+output "cloudwatch_dashboard_url" {
+  description = "Latency, throughput, utilisation and recent errors on one page."
+  value       = "https://${var.aws_region}.console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards/dashboard/${module.monitoring.dashboard_name}"
+}
+
 output "vertical_scaler_function_name" {
   value = module.vertical_scaler.lambda_function_name
 }

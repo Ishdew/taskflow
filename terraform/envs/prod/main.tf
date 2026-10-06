@@ -105,15 +105,18 @@ resource "aws_iam_role_policy" "ecs_task_execution_db_secret" {
 module "monitoring" {
   source = "../../modules/monitoring"
 
-  name_prefix           = local.name_prefix
-  cluster_name          = local.cluster_name
-  service_name          = local.service_name
-  log_retention_days    = var.log_retention_days
-  cpu_high_threshold    = var.alarm_cpu_high_threshold
-  memory_high_threshold = var.alarm_memory_high_threshold
-  cpu_low_threshold     = var.alarm_cpu_low_threshold
-  memory_low_threshold  = var.alarm_memory_low_threshold
-  tags                  = local.common_tags
+  name_prefix             = local.name_prefix
+  cluster_name            = local.cluster_name
+  service_name            = local.service_name
+  log_retention_days      = var.log_retention_days
+  cpu_high_threshold      = var.alarm_cpu_high_threshold
+  memory_high_threshold   = var.alarm_memory_high_threshold
+  cpu_low_threshold       = var.alarm_cpu_low_threshold
+  memory_low_threshold    = var.alarm_memory_low_threshold
+  aws_region              = var.aws_region
+  alb_arn_suffix          = module.alb.alb_arn_suffix
+  target_group_arn_suffix = module.alb.target_group_arn_suffix
+  tags                    = local.common_tags
 }
 
 module "ecs_service" {

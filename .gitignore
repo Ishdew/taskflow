@@ -36,6 +36,11 @@ terraform.rc
 *.tfvars.json
 !*.tfvars.example
 
+# Backend config names the real state bucket, so it carries the account ID. CI generates it from
+# CI/CD variables (ci/write-backend-config.sh); locally you copy the .example and fill it in.
+backend-config.hcl
+!backend-config.example.hcl
+
 ### Ansible ###
 *.retry
 ansible/inventory/hosts

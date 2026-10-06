@@ -12,6 +12,7 @@ Day-to-day operations for the deployed stack. Use when something looks wrong in 
 | ECS service | `taskflow-prod-service` |
 | ECR repo | `taskflow` |
 | Log group | `/ecs/taskflow-prod` |
+| Dashboard | `taskflow-prod-overview` (`terraform output -raw cloudwatch_dashboard_url`) |
 | RDS instance | `taskflow-prod-postgres` |
 | DB secret | Secrets Manager name like `taskflow-prod/db` |
 | Vertical scaler | `terraform output -raw vertical_scaler_function_name` |

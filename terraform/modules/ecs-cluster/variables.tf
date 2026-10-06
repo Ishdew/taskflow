@@ -28,6 +28,12 @@ variable "instance_type" {
   default = "t3.small"
 }
 
+variable "root_volume_size_gb" {
+  description = "Root EBS volume per ECS host. 30 GB is the free tier allowance."
+  type        = number
+  default     = 30
+}
+
 variable "min_size" {
   type    = number
   default = 1

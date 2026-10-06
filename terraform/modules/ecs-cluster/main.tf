@@ -29,6 +29,7 @@ resource "aws_security_group" "ecs_host" {
   }
 
   egress {
+    description = "Image pulls, SSM and RDS via the NAT gateway"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -63,6 +64,30 @@ resource "aws_launch_template" "ecs" {
   }
 
   vpc_security_group_ids = [aws_security_group.ecs_host.id]
+
+  # IMDSv2 only. Without this, a server-side request forgery in the application could read the
+  # instance role's credentials with a plain GET. The hop limit has to be 2, not the default 1,
+  # because the ECS agent and the tasks reach the metadata service across the Docker bridge.
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+  }
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+
+    ebs {
+      volume_size           = var.root_volume_size_gb
+      volume_type           = "gp3"
+      encrypted             = true
+      delete_on_termination = true
+    }
+  }
+
+  monitoring {
+    enabled = true
+  }
 
   user_data = base64encode(<<-EOF
               #!/bin/bash

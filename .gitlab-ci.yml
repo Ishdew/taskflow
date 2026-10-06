@@ -188,8 +188,9 @@ checkov:
     name: bridgecrew/checkov:3.2.334
     entrypoint: [""]
   script:
-    # Soft-fail on first import so the pipeline still teaches; tighten later.
-    - checkov -d terraform/ --framework terraform --compact --quiet --soft-fail
+    # Hard gate. Accepted findings are listed with a justification in .checkov.yaml; anything not
+    # on that list fails the pipeline.
+    - checkov --config-file .checkov.yaml
 
 trivy_image:
   extends:

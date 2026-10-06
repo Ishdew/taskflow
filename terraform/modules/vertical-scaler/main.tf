@@ -100,6 +100,11 @@ resource "aws_lambda_function" "scaler" {
   timeout       = 60
   memory_size   = 128
 
+  # One at a time, deliberately. A CPU and a memory alarm can fire within seconds of each other,
+  # and two concurrent executions would both read the same current size and both step up, skipping
+  # a rung of the ladder or fighting over the service.
+  reserved_concurrent_executions = 1
+
   filename         = data.archive_file.lambda.output_path
   source_code_hash = data.archive_file.lambda.output_base64sha256
 

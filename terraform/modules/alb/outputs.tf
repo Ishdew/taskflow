@@ -6,6 +6,15 @@ output "alb_dns_name" {
   value = aws_lb.this.dns_name
 }
 
+# CloudWatch identifies load balancers and target groups by ARN suffix, not full ARN.
+output "alb_arn_suffix" {
+  value = aws_lb.this.arn_suffix
+}
+
+output "target_group_arn_suffix" {
+  value = aws_lb_target_group.app.arn_suffix
+}
+
 output "alb_zone_id" {
   value = aws_lb.this.zone_id
 }

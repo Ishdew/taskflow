@@ -14,6 +14,10 @@ output "sns_topic_name" {
   value = aws_sns_topic.alerts.name
 }
 
+output "dashboard_name" {
+  value = aws_cloudwatch_dashboard.main.dashboard_name
+}
+
 output "cpu_high_alarm_arn" {
   value = aws_cloudwatch_metric_alarm.ecs_cpu_high.arn
 }

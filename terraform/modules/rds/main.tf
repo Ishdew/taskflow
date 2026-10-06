@@ -23,6 +23,7 @@ resource "aws_security_group" "db" {
   }
 
   egress {
+    description = "Managed service egress"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -66,6 +67,22 @@ resource "aws_db_instance" "this" {
   backup_retention_period = var.backup_retention_days
   skip_final_snapshot     = var.skip_final_snapshot
   deletion_protection     = var.deletion_protection
+
+  # Snapshots are useless during an incident if you cannot tell which project they came from.
+  copy_tags_to_snapshot = true
+
+  # Picked up automatically within the maintenance window; a Postgres patch release should never
+  # need a Terraform change.
+  auto_minor_version_upgrade = true
+
+  # Postgres logs go to CloudWatch so slow queries and connection errors are visible next to the
+  # application logs, instead of only inside the instance.
+  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
+
+  # 7 days of Performance Insights is inside the free allowance and is the fastest way to answer
+  # "which query is saturating the database" during the pool-exhaustion incident in the runbook.
+  performance_insights_enabled          = true
+  performance_insights_retention_period = 7
 
   apply_immediately = true
 

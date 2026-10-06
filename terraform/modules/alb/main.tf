@@ -18,6 +18,7 @@ resource "aws_security_group" "alb" {
   }
 
   egress {
+    description = "Forward to ECS host dynamic ports"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -37,6 +38,10 @@ resource "aws_lb" "this" {
   subnets            = var.public_subnet_ids
 
   enable_deletion_protection = var.enable_deletion_protection
+
+  # Reject requests carrying headers the HTTP spec does not allow, so a malformed header cannot be
+  # smuggled past the load balancer and interpreted differently by the backend.
+  drop_invalid_header_fields = true
 
   tags = merge(local.common_tags, {
     Name = "${var.name_prefix}-alb"
